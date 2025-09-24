@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  menu-pwa-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: menu-pwa-ai
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:./prisma/dev.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+    volumes:
+      # Persist database
+      - ./data:/app/prisma
+    restart: unless-stopped
+    depends_on:
+      - db-setup
+    
+  db-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: menu-pwa-ai-db-setup
+    environment:
+      - DATABASE_URL=file:./prisma/dev.db
+    volumes:
+      - ./data:/app/prisma
+    command: >
+      sh -c "
+        npx prisma migrate deploy || npx prisma db push --accept-data-loss &&
+        echo 'Database setup complete'
+      "
+    restart: "no"
+
+volumes:
+  data:
+    driver: local
