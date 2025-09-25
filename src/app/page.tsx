@@ -4,9 +4,11 @@ import { useState } from 'react'
 import { Camera, Upload, Edit, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CameraGalleryCapture } from '@/components/ui/camera-gallery-capture'
 
 export default function Home() {
   const [currentStep, setCurrentStep] = useState<'capture' | 'parse' | 'edit' | 'enrich'>('capture')
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
 
   const steps = [
     { id: 'capture', title: 'Capture Menu', icon: Camera, description: 'Take a photo of the restaurant menu' },
@@ -14,6 +16,16 @@ export default function Home() {
     { id: 'edit', title: 'Edit Items', icon: Edit, description: 'Review and modify extracted items' },
     { id: 'enrich', title: 'AI Enrichment', icon: Sparkles, description: 'Enhance with detailed descriptions' },
   ]
+
+  const handleImageCapture = (imageData: string) => {
+    setCapturedImage(imageData)
+    setCurrentStep('parse')
+  }
+
+  const handleCaptureError = (error: string) => {
+    console.error('Capture error:', error)
+    // You could add toast notifications here if needed
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -79,32 +91,10 @@ export default function Home() {
           </CardHeader>
           <CardContent>
             {currentStep === 'capture' && (
-              <div className="text-center py-12">
-                <Camera className="w-24 h-24 mx-auto mb-6 text-gray-400" />
-                <h3 className="text-xl font-semibold mb-4">Ready to Scan Your Menu</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-                  Take a clear photo of the restaurant menu. Make sure the text is readable and well-lit.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button 
-                    size="lg" 
-                    onClick={() => setCurrentStep('parse')}
-                    className="w-full sm:w-auto"
-                  >
-                    <Camera className="w-5 h-5 mr-2" />
-                    Take Photo
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    onClick={() => setCurrentStep('parse')}
-                    className="w-full sm:w-auto"
-                  >
-                    <Upload className="w-5 h-5 mr-2" />
-                    Upload Image
-                  </Button>
-                </div>
-              </div>
+              <CameraGalleryCapture
+                onImageCapture={handleImageCapture}
+                onError={handleCaptureError}
+              />
             )}
 
             {currentStep === 'parse' && (
@@ -179,7 +169,10 @@ export default function Home() {
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button 
                     size="lg"
-                    onClick={() => setCurrentStep('capture')}
+                    onClick={() => {
+                      setCapturedImage(null)
+                      setCurrentStep('capture')
+                    }}
                   >
                     Scan Another Menu
                   </Button>
