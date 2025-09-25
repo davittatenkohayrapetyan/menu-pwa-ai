@@ -40,18 +40,56 @@ export function CameraGalleryCapture({ onImageCapture, onError }: CameraGalleryC
     triggerFileInput()
   }, [triggerFileInput])
 
-  // Initialize camera - move after triggerFileInput
+  // Initialize camera - with enhanced mobile support
   const initializeCamera = useCallback(async () => {
     try {
       setPermissionError(null)
       
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: 'environment', // Use back camera if available
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+      // Check if mediaDevices is available (important for older browsers)
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not supported in this browser')
+      }
+      
+      // Try different camera configurations for better mobile support
+      let mediaStream: MediaStream | null = null
+      
+      // First try: Environment camera (back camera)
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { exact: 'environment' },
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 }
+          }
+        })
+      } catch (envError) {
+        console.warn('Environment camera not available, trying user camera:', envError)
+        
+        // Second try: User camera (front camera) or any available camera
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'user',
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 }
+            }
+          })
+        } catch (userError) {
+          console.warn('User camera not available, trying any camera:', userError)
+          
+          // Third try: Any available camera
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280, max: 1920 },
+              height: { ideal: 720, max: 1080 }
+            }
+          })
         }
-      })
+      }
+      
+      if (!mediaStream) {
+        throw new Error('No camera stream available')
+      }
       
       setStream(mediaStream)
       
@@ -65,11 +103,15 @@ export function CameraGalleryCapture({ onImageCapture, onError }: CameraGalleryC
       
       if (error instanceof Error) {
         if (error.name === 'NotAllowedError') {
-          errorMessage = 'Camera permission denied. Please allow camera access or use gallery instead.'
+          errorMessage = 'Camera permission denied. Please allow camera access in your browser settings and try again, or use gallery instead.'
         } else if (error.name === 'NotFoundError') {
-          errorMessage = 'No camera found. Please use gallery instead.'
+          errorMessage = 'No camera found on this device. Please use gallery instead.'
         } else if (error.name === 'NotReadableError') {
-          errorMessage = 'Camera is already in use. Please use gallery instead.'
+          errorMessage = 'Camera is already in use by another application. Please close other camera apps and try again, or use gallery instead.'
+        } else if (error.name === 'OverconstrainedError') {
+          errorMessage = 'Camera settings not supported. Please use gallery instead.'
+        } else if (error.message.includes('not supported')) {
+          errorMessage = 'Camera not supported in this browser. Please use gallery instead.'
         }
       }
       
@@ -79,10 +121,9 @@ export function CameraGalleryCapture({ onImageCapture, onError }: CameraGalleryC
       // Fallback to gallery on error
       setTimeout(() => {
         setMode('gallery')
-        triggerFileInput()
       }, 2000)
     }
-  }, [onError, triggerFileInput])
+  }, [onError])
 
   // Handle camera mode selection
   const handleCameraMode = useCallback(() => {
@@ -308,11 +349,21 @@ export function CameraGalleryCapture({ onImageCapture, onError }: CameraGalleryC
             Back
           </Button>
         </div>
+        {/* Hidden file input - always rendered for gallery mode */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileSelect}
+          className="hidden"
+          aria-label="File input for gallery selection"
+        />
       </div>
     )
   }
 
-  // Hidden file input
+  // Hidden file input - fallback for any other mode
   return (
     <input
       ref={fileInputRef}
